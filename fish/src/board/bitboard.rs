@@ -1,4 +1,7 @@
-pub type Bitboard = u64;
+use std::fmt;
+
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct Bitboard(pub u64);
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -13,26 +16,58 @@ pub enum Square {
     A0, B0, C0, D0, E0, F0, G0, H0,
 }
 
-pub const EMPTY: Bitboard = 0;
+impl Bitboard {
+    pub const EMPTY: Bitboard = Bitboard(0);
 
-
-// minimal bb_print with rank and file label
-pub fn bb_print(bb: Bitboard) {
-    for rank in (0..8).rev() {
-        print!("{} \t", rank + 1);
-        for file in 0..8 {
-            let i = rank * 8 + file;
-            let bit = (bb >> i) & 1;
-            print!("{} ", bit);
-        }
-        println!();
+    pub fn set_bit(&mut self, sqidx: u8) {
+        self.0 |= 1u64 << sqidx;
     }
+}
 
-    // adding vertical padding
-    println!();
-    print!("    ");
+/* learning note:
+ *  
+ *  we do this (impl fmt::Display for Bitboard) because we can not just
+ *  print regularly with the struct. Thus, we are making special implementation
+ *  for printing it.
+ *
+ *
+ * fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+ *               ^ this is the output destination
+ *                                          ^ fmt::Result is the same
+ *                                            Result<(), fmt::Error>
+ *                                            OK(()), or Err(...)
+ */
 
-    for f in b'A'..=b'H' {
-        print!("{} ", f as char);
+impl fmt::Display for Bitboard {
+
+    // minimal bb_print with rank and file label
+    fn fmt(&self, f: &mut fmt:: Formatter) -> fmt::Result {
+        for rank in (0..8).rev() {
+            write!(f, "{} \t", rank + 1)?;
+            //     ^ as described, f is whatever the destination
+            //     is currently formatting this
+            //     it is like print! but with "f"
+            //
+            //     ? handles the error case.
+            //     If it fails, stop at there.
+            //
+            //     Thus you can just return Ok(()) at the end.
+
+            for file in 0..8 {
+                let i = rank * 8 + file;
+                let bit = (self.0 >> i) & 1;
+                write!(f, "{} ", bit)?;
+            }
+
+            writeln!(f)?; // vertical padding
+        }
+
+        write!(f, "    ")?; // horizontal padding
+
+        for j in b'A'..=b'H' {
+            write!(f, "{} ", j as char)?;
+        }
+
+        Ok(())
     }
 }
