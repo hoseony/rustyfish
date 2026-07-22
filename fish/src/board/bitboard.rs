@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::{BitAnd, BitOr, BitXor, Not, BitAndAssign, BitOrAssign, BitXorAssign};
 
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub struct Bitboard(pub u64);
@@ -19,8 +20,23 @@ pub enum Square {
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
 
+    /// set bit of sqidx to 1
     pub fn set_bit(&mut self, sqidx: u8) {
         self.0 |= 1u64 << sqidx;
+    }
+
+    /// set bit of sqidx to 0
+    pub fn remove_bit(&mut self, sqidx: u8) {
+        self.0 &= !(1u64 << sqidx)
+    }
+
+    pub fn move_bit(&mut self, from_idx: u8, to_idx: u8) {
+        // you can only move it when there is a bit that is 1
+        if (self.0 & (1u64 << from_idx)) != 0 { 
+            self.0 &= !(1u64 << from_idx);
+            self.set_bit(to_idx);
+            // huh, you do not need to put self in arg, funny
+        }
     }
 }
 
@@ -41,7 +57,7 @@ impl Bitboard {
 impl fmt::Display for Bitboard {
 
     // minimal bb_print with rank and file label
-    fn fmt(&self, f: &mut fmt:: Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for rank in (0..8).rev() {
             write!(f, "{} \t", rank + 1)?;
             //     ^ as described, f is whatever the destination
@@ -62,12 +78,50 @@ impl fmt::Display for Bitboard {
             writeln!(f)?; // vertical padding
         }
 
+        writeln!(f)?; // vertical padding
         write!(f, "    ")?; // horizontal padding
 
         for j in b'A'..=b'H' {
             write!(f, "{} ", j as char)?;
         }
 
+        writeln!(f)?; // padding at the end
+
         Ok(())
     }
+}
+
+// Bitwise operations for Bitboard
+impl BitAnd for Bitboard {
+    type Output = Self;
+
+    // rhs: right hand side
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Bitboard(self.0 & rhs.0)
+    }
+}
+
+impl BitOr for Bitboard {
+    type Output = Self; fn bitor(self, rhs: Self) -> Self::Output { Bitboard(self.0 | rhs.0) }
+}
+
+impl BitXor for Bitboard {
+    type Output = Self; fn bitxor(self, rhs: Self) -> Self::Output { Bitboard(self.0 ^ rhs.0) }
+}
+
+impl Not for Bitboard {
+    type Output = Self; fn not(self) -> Self::Output { Bitboard(!self.0) }
+}
+
+// Bitwise assignment
+impl BitAndAssign for Bitboard {
+    fn bitand_assign(&mut self, rhs: Self) { self.0 &= rhs.0; }
+}
+
+impl BitOrAssign for Bitboard {
+    fn bitor_assign(&mut self, rhs: Self) { self.0 |= rhs.0; }
+}
+
+impl BitXorAssign for Bitboard {
+    fn bitxor_assign(&mut self, rhs: Self) { self.0 ^= rhs.0; }
 }
