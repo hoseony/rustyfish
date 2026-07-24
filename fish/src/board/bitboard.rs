@@ -17,6 +17,27 @@ pub enum Square {
     A0, B0, C0, D0, E0, F0, G0, H0,
 }
 
+// ---------------- CONST ---------------
+pub const FILE_A: u64 = 72340172838076673;
+pub const FILE_B: u64 = 144680345676153346;
+pub const FILE_C: u64 = 289360691352306692;
+pub const FILE_D: u64 = 578721382704613384;
+pub const FILE_E: u64 = 1157442765409226768;
+pub const FILE_F: u64 = 2314885530818453536;
+pub const FILE_G: u64 = 4629771061636907072;
+pub const FILE_H: u64 = 9259542123273814144;
+
+pub const RANK_1: u64 = 255;
+pub const RANK_2: u64 = 65280;
+pub const RANK_3: u64 = 16711680;
+pub const RANK_4: u64 = 4278190080;
+pub const RANK_5: u64 = 1095216660480;
+pub const RANK_6: u64 = 280375465082880;
+pub const RANK_7: u64 = 71776119061217280;
+pub const RANK_8: u64 = 18374686479671623680;
+
+// ---------------- IMPL ---------------
+
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
 
@@ -37,6 +58,16 @@ impl Bitboard {
             self.set_bit(to_idx);
             // huh, you do not need to put self in arg, funny
         }
+    }
+
+    pub fn pop_lsb(&mut self) -> u8 {
+        let sq = self.0.trailing_zeros() as u8;
+        self.0 &= self.0 - 1;
+        sq
+    }
+
+    pub fn count_ones(&self) -> u32 {
+        self.0.count_ones()
     }
 }
 
@@ -90,6 +121,9 @@ impl fmt::Display for Bitboard {
         Ok(())
     }
 }
+
+
+// ---------------- STD::OPS ---------------
 
 // Bitwise operations for Bitboard
 impl BitAnd for Bitboard {

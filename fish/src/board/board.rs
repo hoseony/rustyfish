@@ -1,6 +1,8 @@
 use crate::board::bitboard::Bitboard;
 use std::fmt;
 
+// ------------------- def  ------------------
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Color {
     White,
@@ -26,6 +28,8 @@ pub struct Board {
     pub halfmove_clock: u32, // if hit 100, 50 move rule
     pub fullmove_number: u32, // just to add more information
 }
+
+// -------------------- impl --------------------
 
 impl Board {
 
