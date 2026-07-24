@@ -1,4 +1,5 @@
 use crate::board::bitboard::*;
+use crate::board::board::*;
 
 // basically translating and optimizing what I wrote 
 // previously on my cfish
@@ -10,7 +11,7 @@ use crate::board::bitboard::*;
 // 0 0 0 0 0 0 0 0
 // 1 0 1 0 0 0 0 0
 // 0 0 0 1 0 0 0 0
-// 0 1 0 0 0 0 0 0
+// 0 x 0 0 0 0 0 0
 // 0 0 0 1 0 0 0 0
 
 pub fn knight_attacks(sq: u8) -> Bitboard {
@@ -29,6 +30,7 @@ pub fn knight_attacks(sq: u8) -> Bitboard {
     
     Bitboard(attacks)
 }
+
 
 // hopefully I will implement magic for these sliding pieces
 pub fn bishop_attacks(sq: u8, occupied: Bitboard) -> Bitboard {
@@ -92,6 +94,7 @@ pub fn bishop_attacks(sq: u8, occupied: Bitboard) -> Bitboard {
     Bitboard(attacks)
 }
 
+
 pub fn rook_attacks(sq: u8, occupied: Bitboard) -> Bitboard {
     let mut attacks: u64 = 0;
 
@@ -108,7 +111,6 @@ pub fn rook_attacks(sq: u8, occupied: Bitboard) -> Bitboard {
         }
         r += 1;
     }
-
 
     // down
     let mut r = rank - 1;
@@ -143,7 +145,6 @@ pub fn rook_attacks(sq: u8, occupied: Bitboard) -> Bitboard {
         f -= 1;
     }
 
-
     Bitboard(attacks)
 }
 
@@ -172,27 +173,67 @@ pub fn king_attacks(sq: u8) -> Bitboard {
     Bitboard(attacks)
 }
 
-// wow I actually found ways that are so much better
-// LOL
 
+// pawn moves
+//  - pawn attacks
+//  - pawn pushes
+//  - en passant (will be handled later in making move)
 
-// --------------------
+pub fn white_pawn_attacks(sq: u8) -> Bitboard {
+    let mut attacks: u64 = 0;
+    let bb: u64 = 1u64 << sq;
+    
+    attacks |= (bb << 9) & !(FILE_A);
+    attacks |= (bb << 7) & !(FILE_H);
 
-// I should probably move these into move.rs
-
-// this is how some good chess engines store moves (e.g. stockfish)
-// 
-// This is how I will be doing here:
-//
-// bit 0 - 5: from square
-// bit 6- 11: to square
-// bit 12-13: promotion piece type - 2 (KNIGHT-2 to QUEEN-2)
-// bit 14-15: special move flag: promotion(1), enpassant(2), castling(3)
-//             * enpassant bit is set only when pawn can be captured
-
-#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
-pub struct Move(pub u16);
-
-impl Move {
-
+    Bitboard(attacks)
 }
+
+
+pub fn black_pawn_attacks(sq: u8) -> Bitboard {
+    let mut attacks: u64 = 0;
+    let bb: u64 = 1u64 << sq;
+    
+    attacks |= (bb >> 9) & !(FILE_H);
+    attacks |= (bb << 7) & !(FILE_A);
+
+    Bitboard(attacks)
+}
+
+
+pub fn white_pawn_pushes(sq: u8, occupied: Bitboard) -> Bitboard {
+    let mut moves: u64 = 0;
+    let bb: u64 = 1u64 << sq;
+
+    // if the square in front of the pawn is empty
+    if occupied.0 & (bb << 8) == 0 {
+        // one square forward is a valid move
+        moves |= bb << 8;
+
+        // if the pawn is moving from rank2, and the target square (2 sq forward) is empty
+        if ((bb & RANK_2) != 0) && (occupied.0 & (bb << 16) == 0) {
+            moves |= bb << 16;
+        }
+    }
+
+    Bitboard(moves)
+}
+
+
+pub fn black_pawn_pushes(sq: u8, occupied: Bitboard) -> Bitboard {
+    let mut moves: u64 = 0;
+    let bb: u64 = 1u64 << sq;
+
+    if occupied.0 & (bb >> 8) == 0 {
+            moves |= bb >> 8;
+
+        if ((bb & RANK_6) != 0) && (occupied.0 & (bb >> 16) == 0) {
+            moves |= bb >> 16;
+        }
+    }
+
+    Bitboard(moves)
+}
+
+
+

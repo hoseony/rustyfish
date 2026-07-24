@@ -31,6 +31,15 @@ pub struct Board {
 
 // -------------------- impl --------------------
 
+impl Color {
+    pub fn opposite(self) -> Color {
+        match self {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+        }
+    }
+}
+
 impl Board {
 
     /// initialize Board wth correct state; pieces, side, ...
@@ -86,6 +95,20 @@ impl Board {
 
         return '.';
      }
+
+    pub fn occupancy(&self, color: Color) -> Bitboard {
+        let mut occupied: u64 = 0;
+        
+        for piece in self.pieces[color as usize].iter() {
+            occupied |= piece.0
+        }
+
+        Bitboard(occupied)
+    }
+
+    pub fn all_occupancy(&self) -> Bitboard {
+        self.occupancy(Color::White) | self.occupancy(Color::Black)
+    }
 }
 
 impl fmt::Display for Board {
