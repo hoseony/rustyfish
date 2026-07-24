@@ -74,7 +74,10 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
                 // now attacks contain all the possible moves that piece can move 
                 // This needs to be converted into individual "move"
 
+                // targets must exclude your own pieces
                 let mut target = Bitboard(attacks.0 & !(occupied.0));
+
+                // iterate over and add it to the Moves
                 while target.0 != 0 {
                     let index = target.pop_lsb();
                     let packed: u16 = (sq as u16) | ((index as u16) << 6) | ((FLAG_NONE as u16) << 14);

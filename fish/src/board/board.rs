@@ -1,4 +1,6 @@
 use crate::board::bitboard::Bitboard;
+use crate::board::moves::*;
+
 use std::fmt;
 
 // ------------------- def  ------------------
@@ -18,6 +20,15 @@ pub enum Piece {
     Queen,
     King,
 }
+
+pub const ALL_PIECES: [Piece; 6] = [
+    Piece::Pawn, 
+    Piece::Knight, 
+    Piece::Bishop, 
+    Piece::Rook, 
+    Piece::Queen, 
+    Piece::King, 
+];
 
 /// struct to represent the board status
 pub struct Board {
@@ -94,7 +105,24 @@ impl Board {
         if self.pieces[1][5].0 & target_sq != 0 { return '♔'; }
 
         return '.';
-     }
+    }
+
+    /// returns index of piece given index of the board 
+    pub fn piece_type_at(&self, color: Color, sq: u8) -> Option<Piece> {
+
+        // for piece in &ALL_PIECES 
+        //  - this will make piece type of &Piece
+        //  - by doing &piece, we are matching &piece = &ALL_PIECES
+
+        for &piece in &ALL_PIECES {
+            if self.pieces[color as usize][piece as usize].is_set(sq) {
+                return Some(piece);
+            }
+        }
+
+        None
+    }
+
 
     pub fn occupancy(&self, color: Color) -> Bitboard {
         let mut occupied: u64 = 0;
@@ -108,6 +136,25 @@ impl Board {
 
     pub fn all_occupancy(&self) -> Bitboard {
         self.occupancy(Color::White) | self.occupancy(Color::Black)
+    }
+
+
+    pub fn make_move(&mut self, mv: Move) {
+        // unpacking move
+        let from: u8 = mv.from_sq();
+        let to: u8   = mv.to_sq();
+        let flag: u8 = mv.flag_bits();
+
+        // enum values
+        let friendly = self.side_to_move;
+        let enemy = friendly.opposite();
+
+        // 1. who is moving?
+        // 2. remove captured piece if any 
+        // 3. move the piece 
+        // 4. handle special rule 
+
+        // let moving_piece = self.piece
     }
 }
 

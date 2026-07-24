@@ -69,6 +69,12 @@ impl Bitboard {
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()
     }
+
+    pub fn is_set(&self, sq: u8) -> bool {
+        // this brings the target sq to the first bit 
+        // easier to compare
+        (self.0 >> sq) & 1 != 0
+    } 
 }
 
 /* learning note:
