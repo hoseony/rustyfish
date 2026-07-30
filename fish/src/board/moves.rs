@@ -24,6 +24,14 @@ pub const FLAG_CASTLING: u8 = 3;
 
 
 impl Move {
+    
+    pub fn new(from: u8, to: u8, promotion: u8, flag: u8) -> Move {
+        let packed: u16 = (from as u16) | ((to as u16) << 6) | ((promotion as u16) << 12) | ((flag as u16) << 14);
+
+        Move(packed)
+    }
+
+
     pub fn to_sq(self) -> u8 {
         // self.0 >> 6 makes it start from 'to square'
         // then isolate 6 bits with mask
@@ -68,7 +76,6 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
                     5 => king_attacks(sq),
                     _ => unreachable!("generate_pseudo_legal_moves | piece type index bound must be between 0-5, got {}", j),
                     // unreachable <-> panic
-                    //
                 }; 
 
                 // now attacks contain all the possible moves that piece can move 
@@ -89,3 +96,71 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
     
     moves
 }
+
+
+/// This function adds possible moves by the pawns to the Vec<Move>
+pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
+    let enemy = color.opposite();
+    let friendly_occupied = board.occupancy(color);
+
+    let enemy_occupied = board.occupancy(enemy);
+    let all_occupied = board.all_occupancy();
+
+
+    let mut pawns: Bitboard = board.pieces[color as usize][Piece::Pawn as usize];
+    while pawns.0 != 0 {
+        let from = pawns.pop_lsb();
+        // 1. push 
+        //  - pushing
+        //  - promotion
+        
+        let (pawn_pushes, promotion_rank): (Bitboard, u64) = if color == Color::White {
+            (white_pawn_pushes(from, all_occupied), RANK_8)
+        } else {
+            (black_pawn_pushes(from, all_occupied), RANK_1)
+        };
+
+        // check if the pawn push leads to a promotion rank
+        let mut pawn_push_rank_check: Bitboard = pawn_pushes;
+        while pawn_push_rank_check.0 != 0 {
+            let to = pawn_push_rank_check.pop_lsb();
+            are_you_promoting(from, to, promotion_rank, moves)
+        }
+
+        // 2. capture 
+        //  - check capture -> Promotion, too
+        let pawn_attacks = if color == Color::White {
+            white_pawn_attacks(from)
+        } else {
+            black_pawn_attacks(from)
+        };
+
+        let mut pawn_capture_rank_check = Bitboard(pawn_attacks.0 & enemy_occupied.0);
+        while pawn_capture_rank_check.0 != 0 {
+            let to = pawn_capture_rank_check.pop_lsb();
+            are_you_promoting(from, to, promotion_rank, moves);
+        }
+
+
+        // 3. en passant
+        if let Some(ep_sq) = board.en_passant {
+            if pawn_attacks.is_set(ep_sq) { // if the the move is enpassant & on the pawn_attacks
+                moves.push(Move::new(from, ep_sq, 0, FLAG_EN_PASSANT));
+            }
+
+        }
+
+    }
+}
+
+fn are_you_promoting(from: u8, to: u8, promotion_rank: u64, moves: &mut Vec<Move>) {
+    if (1u64 << to) & promotion_rank != 0 {
+        for promotion in 0..=3u8 {
+            // add move + flag + 4 different pieces it can promote (kn, rk, bs, q)
+            moves.push(Move::new(from, to, promotion, FLAG_PROMOTION));
+        }
+    } else {
+        moves.push(Move::new(from, to, 0, FLAG_NONE));
+    }
+}
+

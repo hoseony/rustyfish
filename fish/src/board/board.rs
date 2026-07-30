@@ -107,7 +107,7 @@ impl Board {
         return '.';
     }
 
-    /// returns index of piece given index of the board 
+    /// returns type of Piece at the square given color
     pub fn piece_type_at(&self, color: Color, sq: u8) -> Option<Piece> {
 
         // for piece in &ALL_PIECES 
@@ -138,23 +138,50 @@ impl Board {
         self.occupancy(Color::White) | self.occupancy(Color::Black)
     }
 
-
     pub fn make_move(&mut self, mv: Move) {
         // unpacking move
         let from: u8 = mv.from_sq();
         let to: u8   = mv.to_sq();
         let flag: u8 = mv.flag_bits();
-
-        // enum values
-        let friendly = self.side_to_move;
-        let enemy = friendly.opposite();
+        
+        let friendly: Color = self.side_to_move;
+        let enemy: Color = friendly.opposite();
 
         // 1. who is moving?
-        // 2. remove captured piece if any 
-        // 3. move the piece 
-        // 4. handle special rule 
+        let moving_piece = self.piece_type_at(friendly, from).expect("make_move | where is the move?");
 
-        // let moving_piece = self.piece
+        // 2. remove captured piece if any 
+        if let Some(capture) = self.piece_type_at(enemy, to) {
+            self.pieces[enemy as usize][capture as usize].remove_bit(to);
+        }
+
+        // 3. move the piece 
+        self.pieces[friendly as usize][moving_piece as usize].move_bit(from, to);
+
+        // 4. handle special rule 
+        match flag {
+            FLAG_NONE => {}, // there nothing to do here
+            FLAG_PROMOTION => (),
+            FLAG_EN_PASSANT => (),
+            FLAG_CASTLING => (),
+            _ => unreachable!("make_move | flag should be 0-3, got {}", flag),
+        }
+
+        // 5. update en passant 
+                
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+        // 0 0 0 0 0 0 0 0
+
+        self.en_passant = None;
+        if moving_piece == Piece::Pawn {
+
+        }
     }
 }
 
@@ -179,6 +206,7 @@ impl fmt::Display for Board {
         for j in b'A'..=b'H' {
             write!(f, "{} ", j as char)?;
         }
+
 
         writeln!(f)?; // padding at the end
 

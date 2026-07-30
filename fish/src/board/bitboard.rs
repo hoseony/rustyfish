@@ -71,8 +71,7 @@ impl Bitboard {
     }
 
     pub fn is_set(&self, sq: u8) -> bool {
-        // this brings the target sq to the first bit 
-        // easier to compare
+        // this brings the target sq to the first bit than compare 
         (self.0 >> sq) & 1 != 0
     } 
 }
