@@ -145,6 +145,8 @@ pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
         // 3. en passant
         if let Some(ep_sq) = board.en_passant {
             if pawn_attacks.is_set(ep_sq) { // if the the move is enpassant & on the pawn_attacks
+                                            // it is a valid move (EnPassant!)
+                                            // board.en_passant updates on make_move function
                 moves.push(Move::new(from, ep_sq, 0, FLAG_EN_PASSANT));
             }
 

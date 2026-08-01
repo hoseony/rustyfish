@@ -34,7 +34,12 @@ pub const ALL_PIECES: [Piece; 6] = [
 pub struct Board {
     pub pieces: [[Bitboard; 6]; 2],
     pub side_to_move: Color,
-    pub castling_rights: u8,
+    pub castling_rights: u8, // going to use the 4 bits only
+    // 0001: white King
+    // 0010: whiet queen 
+    // 0100: black king 
+    // 1000: black queen
+
     pub en_passant: Option<u8>,
     pub halfmove_clock: u32, // if hit 100, 50 move rule
     pub fullmove_number: u32, // just to add more information
@@ -168,20 +173,51 @@ impl Board {
         }
 
         // 5. update en passant 
-                
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
-        // 0 0 0 0 0 0 0 0
+
+        //     0 0 0 0 0 0 0 0
+        //     0 * 0 0 0 0 0 0
+        //     0 x 0 0 0 0 0 0
+        //     0 1 0 0 0 0 0 0
+        //     0 0 0 0 0 0 1 0
+        //     0 0 0 0 0 0 x 0
+        //     0 0 0 0 0 0 * 0
+        //     0 0 0 0 0 0 0 0
 
         self.en_passant = None;
         if moving_piece == Piece::Pawn {
+            let diff = (to as i16 - from as i16).abs();
+            // if the pawn moved two square forward, 
+            // add the midpoint between from and to (which is the ep square)
+            // to the en_passant value.
 
+            if diff == 16 {
+                self.en_passant = Some(((from + to) as u16 / 2) as u8);
+            }
         }
+
+        // 6. update castling 
+        //     0001: white King
+        //     0010: whiet queen 
+        //     0100: black king 
+        //     1000: black queen
+     
+        if moving_piece == Piece::Rook {
+            match (friendly, from) {
+                (Color::White, 7)  => self.castling_rights &= !0b0001u8,
+                (Color::White, 1)  => self.castling_rights &= !0b0010u8,
+                (Color::Black, 63) => self.castling_rights &= !0b0100u8,
+                (Color::Black, 56) => self.castling_rights &= !0b1000u8,
+                _ => {}
+            }
+        }
+        // rust is goated that was so easy
+
+        // 7. update halfmove clock 
+
+        // 8. update full move 
+
+        // 9. switch side, turn ends
+        self.side_to_move = enemy;
     }
 }
 
