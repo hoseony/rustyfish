@@ -156,8 +156,12 @@ impl Board {
         let moving_piece = self.piece_type_at(friendly, from).expect("make_move | where is the move?");
 
         // 2. remove captured piece if any 
+        let mut was_capture = false; // this will be used at 7.
+
+        // if there a enemy piece, remove bit, update was_capture
         if let Some(capture) = self.piece_type_at(enemy, to) {
             self.pieces[enemy as usize][capture as usize].remove_bit(to);
+            was_capture = true;
         }
 
         // 3. move the piece 
@@ -166,9 +170,22 @@ impl Board {
         // 4. handle special rule 
         match flag {
             FLAG_NONE => {}, // there nothing to do here
-            FLAG_PROMOTION => (),
-            FLAG_EN_PASSANT => (),
-            FLAG_CASTLING => (),
+            FLAG_PROMOTION => {
+                // remove pawn 
+                // add some piece
+                self.pieces[friendly as usize][0].remove_bit(to);
+
+                let promotion_piece: u8 = mv.promotion_bits();
+                self.pieces[friendly as usize][promotion_piece as usize + 1].set_bit(to);
+            },
+            FLAG_EN_PASSANT => {
+                // remove pawn
+                let target: u8 = if friendly == Color::White { to - 8 } else { to + 8 };
+                self.pieces[enemy as usize][0].remove_bit(target);
+            },
+            FLAG_CASTLING => { 
+                // move rooks and king correctly
+            },
             _ => unreachable!("make_move | flag should be 0-3, got {}", flag),
         }
 
@@ -207,14 +224,20 @@ impl Board {
                 (Color::White, 1)  => self.castling_rights &= !0b0010u8,
                 (Color::Black, 63) => self.castling_rights &= !0b0100u8,
                 (Color::Black, 56) => self.castling_rights &= !0b1000u8,
-                _ => {}
+                _ => panic!("make_move | 6. update castling, unexpected value"),
             }
         }
         // rust is goated that was so easy
 
         // 7. update halfmove clock 
+        // if capture, reset the clock
+        // if pawn moves, reset the clock
+        if (moving_piece != Piece::Pawn) || (was_capture) {
+            self.halfmove_clock += 1;
+        }
 
         // 8. update full move 
+        self.fullmove_number += 1;
 
         // 9. switch side, turn ends
         self.side_to_move = enemy;

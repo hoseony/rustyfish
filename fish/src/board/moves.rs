@@ -3,14 +3,15 @@ use crate::board::attacks::*;
 use crate::board::bitboard::*;
 
 // I should probably move these into move.rs
-
+//
 // this is how some good chess engines store moves (e.g. stockfish)
 // 
 // This is how I will be doing here:
 //
 // bit 0 - 5: from square
-// bit 6- 11: to square
-// bit 12-13: promotion piece type - 2 (KNIGHT-2 to QUEEN-2)
+// bit 6 -11: to square
+// bit 12-13: promotion piece type
+//               0 - Knight | 1 - Bishop | 2 - Rook | 3 - Queen
 // bit 14-15: special move flag: promotion(1), enpassant(2), castling(3)
 //             * enpassant bit is set only when pawn can be captured
 
@@ -24,28 +25,32 @@ pub const FLAG_CASTLING: u8 = 3;
 
 
 impl Move {
-    
+
+    /// pack all the information into Move type
     pub fn new(from: u8, to: u8, promotion: u8, flag: u8) -> Move {
         let packed: u16 = (from as u16) | ((to as u16) << 6) | ((promotion as u16) << 12) | ((flag as u16) << 14);
 
         Move(packed)
     }
 
-
+    /// unpack 'to' from Move
     pub fn to_sq(self) -> u8 {
         // self.0 >> 6 makes it start from 'to square'
         // then isolate 6 bits with mask
         ((self.0 >> 6) & (0x3F)) as u8
     }
 
+    /// unpack 'from' from Move
     pub fn from_sq(self) -> u8 {
         (self.0 & 0x3F) as u8
     }
 
+    /// unpack 'promotion piece'from Move
     pub fn promotion_bits(self) -> u8 {
         ((self.0 >> 12) & (0x03)) as u8
     }
 
+    /// unpack 'flag' from Move
     pub fn flag_bits(self) -> u8 {
         ((self.0 >> 14) & (0x03)) as u8
     }
@@ -97,11 +102,64 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
     moves
 }
 
+pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
+    let (kingside, queenside): (u8, u8) = 
+                    if color == Color::White { 
+                        (0b00000001, 0b00000010)
+                    } else {
+                        (0b00000100, 0b00001000)
+                    };
+   
+    // kingside_right and queenside_right = 1 if it has the right
+    let kingside_right: bool = (kingside & board.castling_rights) != 0;
+    let queenside_right: bool = (queenside & board.castling_rights) != 0;
+   
+    // if no right, nothing to do
+    if (kingside_right || queenside_right) == false {
+        return;
+    }
+
+    // check occupancy, check attacks -> add to move
+    // (reference the board for constants)
+        //     1 0 * 0 x 0 * 1
+        //     0 0 0 0 0 0 0 0
+        //     0 0 0 0 0 0 0 0
+        //     0 0 0 0 0 0 0 0
+        //     0 0 0 0 0 0 0 0
+        //     0 0 0 0 0 0 0 0
+        //     0 0 0 0 0 0 0 0
+        //     1 0 * 0 x 0 * 1
+
+    if color == Color::White {
+        if kingside_right {
+            let packed: u16 = (4u16) | ((6u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+            moves.push(Move(packed));
+        } 
+
+        if queenside_right {
+            let packed: u16 = (4u16)| ((2u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+            moves.push(Move(packed));
+        }
+    }
+
+    if color == Color::Black{
+        if kingside_right {
+            let packed: u16 = (60u16) | ((62u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+            moves.push(Move(packed));
+        } 
+
+        if queenside_right {
+            let packed: u16 = (60u16) | ((58u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+            moves.push(Move(packed));
+        }
+    }
+}
+
 
 /// This function adds possible moves by the pawns to the Vec<Move>
 pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
     let enemy = color.opposite();
-    let friendly_occupied = board.occupancy(color);
+    let _friendly_occupied = board.occupancy(color);
 
     let enemy_occupied = board.occupancy(enemy);
     let all_occupied = board.all_occupancy();
