@@ -177,6 +177,10 @@ impl Board {
 
                 let promotion_piece: u8 = mv.promotion_bits();
                 self.pieces[friendly as usize][promotion_piece as usize + 1].set_bit(to);
+                // 0 - Knight 
+                // 1 - Bishop
+                // 2 - Rook 
+                // 3 - Queen
             },
             FLAG_EN_PASSANT => {
                 // remove pawn
@@ -184,7 +188,7 @@ impl Board {
                 self.pieces[enemy as usize][0].remove_bit(target);
             },
             FLAG_CASTLING => { 
-                // move rooks and king correctly
+                // move rooks correctly
             },
             _ => unreachable!("make_move | flag should be 0-3, got {}", flag),
         }

@@ -1,3 +1,4 @@
+use crate::board::board::Piece::Pawn;
 use crate::board::board::*;
 use crate::board::attacks::*;
 use crate::board::bitboard::*;
@@ -102,6 +103,54 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
     moves
 }
 
+pub fn generate_attack_bitboard(board: &Board, color: Color) -> Bitboard {
+    let mut attacks: u64 = 0; 
+    let occupied = board.all_occupancy();
+
+    // send help... I just gotta do this :(
+    let mut knights = board.pieces[color as usize][Piece::Knight as usize];
+    while knights.0 != 0 {
+        let sq = knights.pop_lsb();
+        attacks |= knight_attacks(sq).0;
+    }
+
+    let mut rooks = board.pieces[color as usize][Piece::Rook as usize];
+    while rooks.0 != 0 {
+        let sq = rooks.pop_lsb();
+        attacks |= rook_attacks(sq, occupied).0;
+    }
+
+    let mut bishops = board.pieces[color as usize][Piece::Bishop as usize];
+    while bishops.0 != 0 {
+        let sq = bishops.pop_lsb();
+        attacks |= bishop_attacks(sq, occupied).0;
+    }
+
+    let mut queens = board.pieces[color as usize][Piece::Queen as usize];
+    while queens.0 != 0 {
+        let sq = queens.pop_lsb();
+        attacks |= queen_attacks(sq, occupied).0;
+    }
+
+    let mut king = board.pieces[color as usize][Piece::King as usize];
+    while king.0 != 0 {
+        let sq = king.pop_lsb();
+        attacks |= king_attacks(sq).0;
+    }
+
+    let mut pawns = board.pieces[color as usize][Piece::Pawn as usize];
+    while pawns.0 != 0 {
+        let sq = pawns.pop_lsb();
+        attacks |= if color == Color::White {
+            white_pawn_attacks(sq).0
+        } else {
+            black_pawn_attacks(sq).0
+        }
+    }
+
+    return Bitboard(attacks);
+}
+
 pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
     let (kingside, queenside): (u8, u8) = 
                     if color == Color::White { 
@@ -130,27 +179,55 @@ pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move
         //     0 0 0 0 0 0 0 0
         //     1 0 * 0 x 0 * 1
 
-    if color == Color::White {
-        if kingside_right {
-            let packed: u16 = (4u16) | ((6u16) << 6) | ((FLAG_CASTLING as u16) << 14);
-            moves.push(Move(packed));
-        } 
+    let occupied = board.all_occupancy();
 
-        if queenside_right {
-            let packed: u16 = (4u16)| ((2u16) << 6) | ((FLAG_CASTLING as u16) << 14);
-            moves.push(Move(packed));
+    let enemy = color.opposite();
+    let attack_bb = generate_attack_bitboard(board, enemy);
+
+    // White
+    if color == Color::White {
+        // kingside
+        if !occupied.is_set(5) && !occupied.is_set(6) { // occupancy check
+            if kingside_right {
+                // attack square check (king also should not be in check!)
+                if !attack_bb.is_set(4) && !attack_bb.is_set(5) && !attack_bb.is_set(6) {
+                    let packed: u16 = (4u16) | ((6u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+                    moves.push(Move(packed));
+                }
+            } 
+        }
+
+        // queenside
+        if !occupied.is_set(1) && !occupied.is_set(2) && !occupied.is_set(3) {
+            if queenside_right {
+                if !attack_bb.is_set(2) && !attack_bb.is_set(3) && !attack_bb.is_set(4) {
+                    let packed: u16 = (4u16)| ((2u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+                    moves.push(Move(packed));
+                }
+            }
         }
     }
 
+    // King
     if color == Color::Black{
-        if kingside_right {
-            let packed: u16 = (60u16) | ((62u16) << 6) | ((FLAG_CASTLING as u16) << 14);
-            moves.push(Move(packed));
-        } 
-
-        if queenside_right {
-            let packed: u16 = (60u16) | ((58u16) << 6) | ((FLAG_CASTLING as u16) << 14);
-            moves.push(Move(packed));
+        // kingside
+        if !occupied.is_set(62) && !occupied.is_set(61) {
+            if kingside_right {
+                if !attack_bb.is_set(62) && !attack_bb.is_set(61) && !attack_bb.is_set(60){
+                    let packed: u16 = (60u16) | ((62u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+                    moves.push(Move(packed));
+                } 
+            }
+        }
+       
+        // queenside
+        if !occupied.is_set(59) && !occupied.is_set(58) && !occupied.is_set(57) {
+            if !attack_bb.is_set(60) && !attack_bb.is_set(59) && !attack_bb.is_set(58) {
+                if queenside_right {
+                    let packed: u16 = (60u16) | ((58u16) << 6) | ((FLAG_CASTLING as u16) << 14);
+                    moves.push(Move(packed));
+                }
+            }
         }
     }
 }
