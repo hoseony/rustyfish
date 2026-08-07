@@ -61,41 +61,43 @@ impl Move {
 
 pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
     let mut moves = Vec::new();
+    let friendly = board.side_to_move;
 
-    for i in 0..=1 {
-        let color = if i == 0 { Color::White } else { Color::Black };
-        let occupied = board.occupancy(color);
+    let friendly_occupied = board.occupancy(friendly);
+    let occupied = board.all_occupancy();
 
-        for j in 0..6 {
-            let mut bb = board.pieces[i][j];
-            while bb.0 != 0 {
-                // It would been better to make pop_lsb not an impl of bitboard..
-                
-                let sq = bb.pop_lsb();
+    generate_pawn_moves(board, friendly, &mut moves);
+    generate_castling_moves(board, friendly, &mut moves);
 
-                let attacks: Bitboard = match j {
-                    0 => Bitboard::EMPTY, // I need to think about how to handle this
-                    1 => knight_attacks(sq),
-                    2 => bishop_attacks(sq, occupied),
-                    3 => rook_attacks(sq, occupied),
-                    4 => queen_attacks(sq, occupied),
-                    5 => king_attacks(sq),
-                    _ => unreachable!("generate_pseudo_legal_moves | piece type index bound must be between 0-5, got {}", j),
-                    // unreachable <-> panic
-                }; 
+    for j in 0..6 {
+        let mut bb = board.pieces[friendly as usize][j];
+        while bb.0 != 0 {
+            // It would been better to make pop_lsb not an impl of bitboard..
+            
+            let sq = bb.pop_lsb();
 
-                // now attacks contain all the possible moves that piece can move 
-                // This needs to be converted into individual "move"
+            let attacks: Bitboard = match j {
+                0 => Bitboard::EMPTY, // I need to think about how to handle this
+                1 => knight_attacks(sq),
+                2 => bishop_attacks(sq, occupied),
+                3 => rook_attacks(sq, occupied),
+                4 => queen_attacks(sq, occupied),
+                5 => king_attacks(sq),
+                _ => unreachable!("generate_pseudo_legal_moves | piece type index bound must be between 0-5, got {}", j),
+                // unreachable <-> panic
+            }; 
 
-                // targets must exclude your own pieces
-                let mut target = Bitboard(attacks.0 & !(occupied.0));
+            // now attacks contain all the possible moves that piece can move 
+            // This needs to be converted into individual "move"
 
-                // iterate over and add it to the Moves
-                while target.0 != 0 {
-                    let index = target.pop_lsb();
-                    let packed: u16 = (sq as u16) | ((index as u16) << 6) | ((FLAG_NONE as u16) << 14);
-                    moves.push(Move(packed));
-                }
+            // targets must exclude your own pieces
+            let mut target = Bitboard(attacks.0 & !(friendly_occupied.0));
+
+            // iterate over and add it to the Moves
+            while target.0 != 0 {
+                let index = target.pop_lsb();
+                let packed: u16 = (sq as u16) | ((index as u16) << 6) | ((FLAG_NONE as u16) << 14);
+                moves.push(Move(packed));
             }
         }
     }
@@ -184,6 +186,7 @@ pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move
     let enemy = color.opposite();
     let attack_bb = generate_attack_bitboard(board, enemy);
 
+    // The rook moving part will be implemented on the `make_move`
     // White
     if color == Color::White {
         // kingside
@@ -275,7 +278,6 @@ pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
             let to = pawn_capture_rank_check.pop_lsb();
             are_you_promoting(from, to, promotion_rank, moves);
         }
-
 
         // 3. en passant
         if let Some(ep_sq) = board.en_passant {

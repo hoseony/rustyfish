@@ -31,6 +31,7 @@ pub const ALL_PIECES: [Piece; 6] = [
 ];
 
 /// struct to represent the board status
+#[derive(Clone, Copy, Debug)]
 pub struct Board {
     pub pieces: [[Bitboard; 6]; 2],
     pub side_to_move: Color,
@@ -70,7 +71,6 @@ impl Board {
                     Bitboard(0x0000000000000008), // wq
                     Bitboard(0x0000000000000010), // wk
                 ],
-
                 [
                     Bitboard(0x00FF000000000000), // bp
                     Bitboard(0x4200000000000000), // bn
@@ -152,24 +152,38 @@ impl Board {
         let friendly: Color = self.side_to_move;
         let enemy: Color = friendly.opposite();
 
-        // 1. who is moving?
+        /* 1. who is moving? */
         let moving_piece = self.piece_type_at(friendly, from).expect("make_move | where is the move?");
 
-        // 2. remove captured piece if any 
+        /* 2. remove captured piece if any */
         let mut was_capture = false; // this will be used at 7.
-
+                                      
         // if there a enemy piece, remove bit, update was_capture
         if let Some(capture) = self.piece_type_at(enemy, to) {
             self.pieces[enemy as usize][capture as usize].remove_bit(to);
             was_capture = true;
+
+            // if rook capture, revoke opponent's castle right accordingly
+            if capture == Piece::Rook {
+                match (enemy, to) {
+                    (Color::White, 7)  => self.castling_rights &= !0b0001u8,
+                    (Color::White, 0)  => self.castling_rights &= !0b0010u8,
+                    (Color::Black, 63) => self.castling_rights &= !0b0100u8,
+                    (Color::Black, 56) => self.castling_rights &= !0b1000u8,
+                    _ => {},
+
+                }
+
+            }
         }
 
-        // 3. move the piece 
+        /* 3. move the piece */
         self.pieces[friendly as usize][moving_piece as usize].move_bit(from, to);
 
-        // 4. handle special rule 
+        /* 4. handle special rule */
         match flag {
             FLAG_NONE => {}, // there nothing to do here
+
             FLAG_PROMOTION => {
                 // remove pawn 
                 // add some piece
@@ -182,27 +196,30 @@ impl Board {
                 // 2 - Rook 
                 // 3 - Queen
             },
+
             FLAG_EN_PASSANT => {
                 // remove pawn
                 let target: u8 = if friendly == Color::White { to - 8 } else { to + 8 };
                 self.pieces[enemy as usize][0].remove_bit(target);
             },
+
             FLAG_CASTLING => { 
-                // move rooks correctly
+                let (rook_from, rook_to) = match to {
+                    6  => (7, 5),
+                    2  => (0, 3),
+                    62 => (63, 61),
+                    58 => (56, 59),
+                    _ => unreachable!("make_move | invalid castling destination: {}", to),
+
+                };
+                self.pieces[friendly as usize][Piece::Rook as usize].move_bit(rook_from, rook_to);
+
             },
+
             _ => unreachable!("make_move | flag should be 0-3, got {}", flag),
         }
 
         // 5. update en passant 
-
-        //     0 0 0 0 0 0 0 0
-        //     0 * 0 0 0 0 0 0
-        //     0 x 0 0 0 0 0 0
-        //     0 1 0 0 0 0 0 0
-        //     0 0 0 0 0 0 1 0
-        //     0 0 0 0 0 0 x 0
-        //     0 0 0 0 0 0 * 0
-        //     0 0 0 0 0 0 0 0
 
         self.en_passant = None;
         if moving_piece == Piece::Pawn {
@@ -221,30 +238,46 @@ impl Board {
         //     0010: whiet queen 
         //     0100: black king 
         //     1000: black queen
-     
+        
+        if moving_piece == Piece::King {
+            if friendly == Color::White {
+                self.castling_rights &= !0b0011u8;
+            } else {
+                self.castling_rights &= !0b1100u8;
+            }
+        }
+
         if moving_piece == Piece::Rook {
             match (friendly, from) {
                 (Color::White, 7)  => self.castling_rights &= !0b0001u8,
-                (Color::White, 1)  => self.castling_rights &= !0b0010u8,
+                (Color::White, 0)  => self.castling_rights &= !0b0010u8,
                 (Color::Black, 63) => self.castling_rights &= !0b0100u8,
                 (Color::Black, 56) => self.castling_rights &= !0b1000u8,
-                _ => panic!("make_move | 6. update castling, unexpected value"),
+                _ => {}, // oops, this should not panic
             }
         }
-        // rust is goated that was so easy
 
         // 7. update halfmove clock 
+        
         // if capture, reset the clock
-        // if pawn moves, reset the clock
-        if (moving_piece != Piece::Pawn) || (was_capture) {
+        // if pawn moves, reset the clock, otherwise increment
+        if (moving_piece == Piece::Pawn) || (was_capture) || flag == FLAG_EN_PASSANT {
+            self.halfmove_clock = 0; 
+        } else {
             self.halfmove_clock += 1;
         }
 
         // 8. update full move 
-        self.fullmove_number += 1;
+        if friendly == Color::Black {
+            self.fullmove_number += 1;
+        }
 
         // 9. switch side, turn ends
         self.side_to_move = enemy;
+    }
+
+    pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
+
     }
 }
 

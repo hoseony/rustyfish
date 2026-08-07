@@ -225,9 +225,9 @@ pub fn black_pawn_pushes(sq: u8, occupied: Bitboard) -> Bitboard {
     let bb: u64 = 1u64 << sq;
 
     if occupied.0 & (bb >> 8) == 0 {
-            moves |= bb >> 8;
+        moves |= bb >> 8;
 
-        if ((bb & RANK_6) != 0) && (occupied.0 & (bb >> 16) == 0) {
+        if ((bb & RANK_7) != 0) && (occupied.0 & (bb >> 16) == 0) {
             moves |= bb >> 16;
         }
     }
