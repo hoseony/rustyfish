@@ -275,10 +275,6 @@ impl Board {
         // 9. switch side, turn ends
         self.side_to_move = enemy;
     }
-
-    pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
-
-    }
 }
 
 impl fmt::Display for Board {
@@ -308,4 +304,28 @@ impl fmt::Display for Board {
 
         Ok(())
     }
+}
+
+/// generate_pseudo_legal_moves -> generate_legal_moves
+/// legal_moeves checks king safety after the move.
+/// I will still do the brute-force method of checking.
+/// I might come back to change it to more clever ways (only checking pinned pieces, king moves, ... )
+pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
+    let pseudo_moves: Vec<Move> = generate_pseudo_legal_moves(board);
+    let mut legal_moves = Vec::new();
+    let friendly = board.side_to_move;
+    let enemy = friendly.opposite();
+
+    // let enemy_occupied = board.occupancy(enemy);
+    for i in 0..pseudo_moves.len() {
+        let mut test_board: Board = *board;
+        test_board.make_move(pseudo_moves[i]);
+
+        let attack = generate_attack_bitboard(&test_board, enemy);
+        if (attack.0 & test_board.pieces[friendly as usize][Piece::King as usize].0) == 0 {
+            legal_moves.push(pseudo_moves[i]);
+        }
+    }
+   
+    legal_moves
 }
