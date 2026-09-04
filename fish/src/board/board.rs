@@ -329,3 +329,19 @@ pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
    
     legal_moves
 }
+
+pub fn perft(board: &Board , depth: u32) -> u64 {
+    if depth == 0 {
+        return 1;
+    }
+
+    let moves = generate_legal_moves(board);
+    let mut nodes: u64 = 0;
+
+    for mv in moves {
+        let mut new_board = *board;
+        new_board.make_move(mv);
+        nodes += perft(&new_board, depth - 1);
+    }
+    nodes
+}
