@@ -195,7 +195,7 @@ pub fn black_pawn_attacks(sq: u8) -> Bitboard {
     let bb: u64 = 1u64 << sq;
     
     attacks |= (bb >> 9) & !(FILE_H);
-    attacks |= (bb << 7) & !(FILE_A);
+    attacks |= (bb >> 7) & !(FILE_A);
 
     Bitboard(attacks)
 }

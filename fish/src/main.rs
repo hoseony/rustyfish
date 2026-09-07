@@ -16,7 +16,7 @@ fn main() {
 
     let board = Board::initialize_board();
 
-    for depth in 1..=4 {
+    for depth in 1..=7 {
         let nodes = perft(&board, depth);
         println!("Depth {} : {}", depth, nodes);
     }
