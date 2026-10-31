@@ -293,7 +293,7 @@ impl fmt::Display for Board {
         }
 
         writeln!(f)?; // vertical padding
-        write!(f, "    ")?; // horizontal padding
+        write!(f, "        ")?; // horizontal padding
 
         for j in b'A'..=b'H' {
             write!(f, "{} ", j as char)?;
@@ -330,6 +330,7 @@ pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
     legal_moves
 }
 
+/// normal performance & move gen check
 pub fn perft(board: &Board , depth: u32) -> u64 {
     if depth == 0 {
         return 1;
@@ -344,4 +345,21 @@ pub fn perft(board: &Board , depth: u32) -> u64 {
         nodes += perft(&new_board, depth - 1);
     }
     nodes
+}
+
+/// perft debugging tool
+pub fn perft_divide(board: &Board, depth: u32) -> u64 {
+    let moves = generate_legal_moves(board);
+    let mut total: u64 = 0;
+
+    for mv in moves {
+        let mut new_board = *board;
+        new_board.make_move(mv);
+        let nodes = perft(&new_board, depth - 1);
+        println!("{}: {}", mv.to_uci(), nodes);
+        total += nodes;
+    }
+
+    println!("\nNodes searched: {}", total);
+    total
 }

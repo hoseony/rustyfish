@@ -1,5 +1,4 @@
 use crate::board::bitboard::*;
-use crate::board::board::*;
 
 // basically translating and optimizing what I wrote 
 // previously on my cfish

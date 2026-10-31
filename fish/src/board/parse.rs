@@ -1,5 +1,6 @@
 use crate::board::board::*;
 use crate::board::bitboard::*;
+use crate::board::moves::*;
 
 /// parse fen -> Board
 impl Board {
@@ -78,7 +79,7 @@ impl Board {
 
         // 4. en_passant
         let ep: &str = parts.next().expect("from fen (4) | missing en passant field");
-        println!("{}", ep);
+        // println!("{}", ep);
 
         board.en_passant = if ep == "-" {
             None
@@ -99,9 +100,22 @@ impl Board {
         let fullmove: Option<&str> = parts.next();
         match fullmove {
             Some(count) => board.fullmove_number = count.parse().expect("from fen (6) | Not a valid number"),
-            None => board.halfmove_clock = 0,
+            None => board.fullmove_number = 1,
         }
 
         return board;
     }
+}
+
+pub fn parse_move_input(input: &str, legal_moves: &[Move]) -> Option<Move> {
+    // to_uci returns all lowercase
+    let input = input.to_lowercase();
+
+    // looks cheaty but it works...
+    for &mv in legal_moves {
+        if mv.to_uci() == input {
+            return Some(mv);
+        }
+    }
+    None
 }

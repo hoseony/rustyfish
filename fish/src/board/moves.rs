@@ -1,4 +1,3 @@
-use crate::board::board::Piece::Pawn;
 use crate::board::board::*;
 use crate::board::attacks::*;
 use crate::board::bitboard::*;
@@ -54,6 +53,26 @@ impl Move {
     /// unpack 'flag' from Move
     pub fn flag_bits(self) -> u8 {
         ((self.0 >> 14) & (0x03)) as u8
+    }
+
+    /// moves -> uci format string
+    /// from + to + promotion bit
+    pub fn to_uci(self) -> String {
+        let mut s = String::new();
+        s.push_str(&square_to_string(self.from_sq()));
+        s.push_str(&square_to_string(self.to_sq()));
+
+        if self.flag_bits() == FLAG_PROMOTION {
+            let c = match self.promotion_bits() {
+                0 => 'n',
+                1 => 'b',
+                2 => 'r',
+                3 => 'q',
+                _ => unreachable!(),
+            };
+            s.push(c);
+        }
+        s
     }
 }
 
@@ -292,6 +311,8 @@ pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
     }
 }
 
+/// Check if the pawn is promoting or not
+/// if it is, add possible promotions to the Vec<Move>
 fn are_you_promoting(from: u8, to: u8, promotion_rank: u64, moves: &mut Vec<Move>) {
     if (1u64 << to) & promotion_rank != 0 {
         for promotion in 0..=3u8 {
@@ -303,3 +324,24 @@ fn are_you_promoting(from: u8, to: u8, promotion_rank: u64, moves: &mut Vec<Move
     }
 }
 
+/// Convert square to string (e.g. a1)
+pub fn square_to_string(sq: u8) -> String {
+    let file = (b'a' + (sq % 8)) as char; 
+    let rank = (b'1' + (sq / 8)) as char;
+    format!("{file}{rank}")
+}
+
+#[test]
+fn uci_string() {
+    assert_eq!(square_to_string(0), "a1");
+    assert_eq!(square_to_string(63), "h8");
+    // --- to_uci ---
+    // Move::new(from, to, promotion, flag)
+
+    // normal move: e2->e4
+    assert_eq!(Move::new(12, 28, 0, FLAG_NONE).to_uci(), "e2e4");
+    // promotion: e7->e8, promotion to queen
+    assert_eq!(Move::new(52, 60, 3, FLAG_PROMOTION).to_uci(), "e7e8q");
+    // castling: e1->g1, fortunately, no new symbol
+    assert_eq!(Move::new(4, 6, 0, FLAG_CASTLING).to_uci(), "e1g1");
+}
