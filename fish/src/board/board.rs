@@ -275,6 +275,21 @@ impl Board {
         // 9. switch side, turn ends
         self.side_to_move = enemy;
     }
+   
+    /// return true if side to move's king is attacked
+    pub fn is_in_check(&self) -> bool {
+        let friendly = self.side_to_move;
+        let enemy = friendly.opposite();
+
+        let king = self.pieces[friendly as usize][Piece::King as usize];
+        let attacks = generate_attack_bitboard(self, enemy);
+
+        (king.0 & attacks.0) != 0
+    }
+
+
+
+
 }
 
 impl fmt::Display for Board {

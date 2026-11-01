@@ -3,16 +3,7 @@ use fish::board::parse::*;
 use std::io::{self, Write};
 
 fn main() {
-    /*
-    let mut board = Board::initialize_board();
-    let moves = generate_legal_moves(&board);
-
-    println!("{}", board);
-
-    Board::make_move(&mut board, moves[0]);
-    println!("{}", board);
-    */
-
+    /* 
     let mut board = Board::initialize_board();
 
     loop {
@@ -20,8 +11,13 @@ fn main() {
         println!("--- Side to move: {:?} ---", board.side_to_move);
 
         let legal_moves = generate_legal_moves(&board);
+
         if legal_moves.is_empty() {
-            println!("game over");
+            if board.is_in_check() {
+                println!("Checkmate! {:?} wins", board.side_to_move.opposite());
+            } else {
+                println!("game over");
+            }
             break;
         }
 
@@ -47,4 +43,7 @@ fn main() {
         }
         println!();
     }
+    */
+
+    fish::uci::run();
 }
