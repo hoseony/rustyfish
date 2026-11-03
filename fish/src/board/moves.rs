@@ -5,7 +5,7 @@ use crate::board::bitboard::*;
 // I should probably move these into move.rs
 //
 // this is how some good chess engines store moves (e.g. stockfish)
-// 
+//
 // This is how I will be doing here:
 //
 // bit 0 - 5: from square
@@ -92,7 +92,7 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
         let mut bb = board.pieces[friendly as usize][j];
         while bb.0 != 0 {
             // It would been better to make pop_lsb not an impl of bitboard..
-            
+
             let sq = bb.pop_lsb();
 
             let attacks: Bitboard = match j {
@@ -104,7 +104,7 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
                 5 => king_attacks(sq),
                 _ => unreachable!("generate_pseudo_legal_moves | piece type index bound must be between 0-5, got {}", j),
                 // unreachable <-> panic
-            }; 
+            };
 
             // now attacks contain all the possible moves that piece can move 
             // This needs to be converted into individual "move"
@@ -120,12 +120,12 @@ pub fn generate_pseudo_legal_moves(board: &Board) -> Vec<Move> {
             }
         }
     }
-    
+
     moves
 }
 
 pub fn generate_attack_bitboard(board: &Board, color: Color) -> Bitboard {
-    let mut attacks: u64 = 0; 
+    let mut attacks: u64 = 0;
     let occupied = board.all_occupancy();
 
     // send help... I just gotta do this :(
@@ -169,21 +169,21 @@ pub fn generate_attack_bitboard(board: &Board, color: Color) -> Bitboard {
         }
     }
 
-    return Bitboard(attacks);
+    Bitboard(attacks)
 }
 
 pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
-    let (kingside, queenside): (u8, u8) = 
-                    if color == Color::White { 
+    let (kingside, queenside): (u8, u8) =
+                    if color == Color::White {
                         (0b00000001, 0b00000010)
                     } else {
                         (0b00000100, 0b00001000)
                     };
-   
+
     // kingside_right and queenside_right = 1 if it has the right
     let kingside_right: bool = (kingside & board.castling_rights) != 0;
     let queenside_right: bool = (queenside & board.castling_rights) != 0;
-   
+
     // if no right, nothing to do
     if (kingside_right || queenside_right) == false {
         return;
@@ -216,12 +216,13 @@ pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move
                     let packed: u16 = (4u16) | ((6u16) << 6) | ((FLAG_CASTLING as u16) << 14);
                     moves.push(Move(packed));
                 }
-            } 
+            }
         }
 
-        // queenside
         if !occupied.is_set(1) && !occupied.is_set(2) && !occupied.is_set(3) {
+            // queenside
             if queenside_right {
+                // attack square check
                 if !attack_bb.is_set(2) && !attack_bb.is_set(3) && !attack_bb.is_set(4) {
                     let packed: u16 = (4u16)| ((2u16) << 6) | ((FLAG_CASTLING as u16) << 14);
                     moves.push(Move(packed));
@@ -230,22 +231,24 @@ pub fn generate_castling_moves(board: &Board, color: Color, moves: &mut Vec<Move
         }
     }
 
-    // King
+	// Black
     if color == Color::Black{
-        // kingside
         if !occupied.is_set(62) && !occupied.is_set(61) {
+            // kingside
             if kingside_right {
+                // attack square check
                 if !attack_bb.is_set(62) && !attack_bb.is_set(61) && !attack_bb.is_set(60){
                     let packed: u16 = (60u16) | ((62u16) << 6) | ((FLAG_CASTLING as u16) << 14);
                     moves.push(Move(packed));
-                } 
+                }
             }
         }
-       
-        // queenside
+
         if !occupied.is_set(59) && !occupied.is_set(58) && !occupied.is_set(57) {
-            if !attack_bb.is_set(60) && !attack_bb.is_set(59) && !attack_bb.is_set(58) {
-                if queenside_right {
+            // queenside
+            if queenside_right {
+                // attack square check
+                if !attack_bb.is_set(60) && !attack_bb.is_set(59) && !attack_bb.is_set(58) {
                     let packed: u16 = (60u16) | ((58u16) << 6) | ((FLAG_CASTLING as u16) << 14);
                     moves.push(Move(packed));
                 }
@@ -300,14 +303,13 @@ pub fn generate_pawn_moves(board: &Board, color: Color, moves: &mut Vec<Move>) {
 
         // 3. en passant
         if let Some(ep_sq) = board.en_passant {
-            if pawn_attacks.is_set(ep_sq) { // if the the move is enpassant & on the pawn_attacks
-                                            // it is a valid move (EnPassant!)
-                                            // board.en_passant updates on make_move function
+			// if the move is enpassant & on the pawn_attacks board,
+			// it is a valid move (EnPassant!)
+            // board.en_passant updates on make_move function
+            if pawn_attacks.is_set(ep_sq) {
                 moves.push(Move::new(from, ep_sq, 0, FLAG_EN_PASSANT));
             }
-
         }
-
     }
 }
 

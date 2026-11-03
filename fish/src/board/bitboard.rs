@@ -4,7 +4,7 @@ use std::ops::{BitAnd, BitOr, BitXor, Not, BitAndAssign, BitOrAssign, BitXorAssi
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub struct Bitboard(pub u64);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)] 
 #[repr(u8)]
 pub enum Square {
     A1, B1, C1, D1, E1, F1, G1, H1,

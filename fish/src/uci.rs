@@ -56,10 +56,10 @@ fn random_move(board: &Board, rng: &mut u64) -> Move {
 /// parse token in to correct board
 fn parse_position(token: &[&str]) -> Board {
     /* The input format of the "token" is as such:
-     *  - position startpos 
+     *  - position startpos
      *  - position startpos moves e2e4 e7e5
-     *  - position fen ....... 
-     *  - position fen ....... moves ...   
+     *  - position fen ...
+     *  - position fen ... moves ...
      */
 
     let index = token.iter().position(|&r| r == "moves");
@@ -68,7 +68,7 @@ fn parse_position(token: &[&str]) -> Board {
     let mut board = match token.get(1) {
         Some(&"startpos") => Board::initialize_board(),
         Some(&"fen") => {
-            let end = index.unwrap_or_else(|| token.len());
+            let end = index.unwrap_or(token.len());
             let fen = token[2..end].join("");
             Board::from_fen(&fen)
         }
