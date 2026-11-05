@@ -1,12 +1,13 @@
 use crate::board::board::*;
 use crate::board::parse::*;
 use crate::board::moves::*;
+use crate::engine::search::*;
+
 use std::io::{self, BufRead, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn run() {
     let mut board = Board::initialize_board();
-    let mut rng = seed();
     let stdin = io::stdin();
 
     for line in stdin.lock().lines() {
@@ -16,16 +17,24 @@ pub fn run() {
         match token[0] {
             "quit" => break,
             "uci"  => {
-                println!("engine: rusty fish");
+                println!("id name rusty fish");
+                println!("id author hoseon");
                 println!("uciok")
             }
             "ucinewgame" => board = Board::initialize_board(),
             "isready" => println!("readyok"),
             "position" => board = parse_position(&token),
             "go" => {
-                let mv = random_move(&board, &mut rng);
+                // let mv = random_move(&board, &mut rng);
+                let depth = 5;
+                let (mv, score)= search_root(&board, depth);
+                let start = std::time::Instant::now();
+                let ms = start.elapsed().as_millis();
+
+                println!("info depth {depth} score cp {score} time {ms} pv {}", mv.to_uci());
                 println!("bestmove {}", mv.to_uci());
             }
+
             _ => eprintln!("unknown command: {line}"),
         }
 
@@ -33,7 +42,7 @@ pub fn run() {
     }
 }
 
-fn seed() -> u64 {
+fn u64_random() -> u64 {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;
     nanos | 1
 }
@@ -69,7 +78,7 @@ fn parse_position(token: &[&str]) -> Board {
         Some(&"startpos") => Board::initialize_board(),
         Some(&"fen") => {
             let end = index.unwrap_or(token.len());
-            let fen = token[2..end].join("");
+            let fen = token[2..end].join(" ");
             Board::from_fen(&fen)
         }
         _ => {
@@ -78,7 +87,7 @@ fn parse_position(token: &[&str]) -> Board {
         }
     };
 
-    // actually I will just make it "play" the move
+    // actually "play" the move
     if let Some(i) = index {
         for mv_str in &token[i + 1..] {
             let legal = generate_legal_moves(&board);

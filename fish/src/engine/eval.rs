@@ -86,7 +86,7 @@ pub const PST: [[i32; 64]; 7] = [
     PST_PAWN, PST_KNIGHTS, PST_BISHOPS, PST_ROOKS, PST_QUEENS, PST_KING_MG, PST_KING_EG,
 ];
 
-const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
+pub const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
 
 /* ---------- evaluation functions ---------- */
 
@@ -108,7 +108,7 @@ fn piece_square_table(board: &Board) -> i32 {
 
 			while bb.0 != 0 {
     			let sq = bb.pop_lsb() as usize;
-    			let index = if i == 0 {sq} else {sq ^ 56};
+    			let index = if i == 0 {sq ^ 56} else {sq};
 
     			if i == 0 {
         			score += PST[j][index];
