@@ -1,6 +1,7 @@
 use crate::board::board::*;
 
 /* -------- Piece Square Tables -------- */
+// took it from https://chessprogramming.org/Simplified_Evaluation_Function
 
 pub const PST_PAWN: [i32; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0,

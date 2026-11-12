@@ -25,14 +25,30 @@ pub fn run() {
             "isready" => println!("readyok"),
             "position" => board = parse_position(&token),
             "go" => {
-                // let mv = random_move(&board, &mut rng);
-                let depth = 5;
-                let (mv, score)= search_root(&board, depth);
-                let start = std::time::Instant::now();
-                let ms = start.elapsed().as_millis();
+                // time left
+				let my_time = get_value(&token, if board.side_to_move == Color::White { "wtime" } else { "btime" });
+				let my_inc = get_value(&token, if board.side_to_move == Color::White { "winc" } else { "binc" });
+				let budget_ms = my_time / 30 + my_inc / 2;
 
-                println!("info depth {depth} score cp {score} time {ms} pv {}", mv.to_uci());
-                println!("bestmove {}", mv.to_uci());
+				// get start time
+				let start = std::time::Instant::now();
+				let mut best = None;
+
+				// iterative deepening
+				for depth in 1..=30 {
+    				let (mv, score) = search_root(&board, depth);
+    				let ms = start.elapsed().as_millis() as u64;
+
+                    println!("info depth {depth} score cp {score} time {ms} pv {}", mv.to_uci());
+                    best = Some(mv);
+
+					// next depth usually takes longer, so stop early
+                    if ms > budget_ms / 2 {
+                        break;
+                    }
+				}
+
+                println!("bestmove {}", best.unwrap().to_uci());
             }
 
             _ => eprintln!("unknown command: {line}"),
@@ -41,6 +57,15 @@ pub fn run() {
         io::stdout().flush().unwrap();
     }
 }
+
+fn get_value(token: &[&str], key: &str) -> u64 {
+    token.iter()
+        .position(|&t| t == key) // find the index of the key
+        .and_then(|i| token.get(i + 1)) // get the next index
+        .and_then(|v| v.parse().ok()) // turn it in to number
+        .unwrap_or(0) // take the number or use 0
+}
+
 
 fn u64_random() -> u64 {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64;

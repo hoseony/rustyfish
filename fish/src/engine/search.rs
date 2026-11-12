@@ -13,10 +13,12 @@ fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
 	// beta: the best score that opponent secured
 
     // base case:
-	if depth == 0 { return eval(board); }
+	if depth == 0 { return qsearch(board, alpha, beta); }
 
 	// generate & check moves
-	let moves = generate_legal_moves(board);
+	let mut moves = generate_legal_moves(board);
+	order_moves(board, &mut moves);
+
 	if moves.is_empty() {
     	// mate or stalemate
     	return if board.is_in_check() { -MATE } else { 0 }
@@ -32,12 +34,54 @@ fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
 		// stop searching this node
 		// if the score is higher than what opponent secured,
 		// There's no way your opponent will let that happen.
-    	if score > beta {
+    	if score >= beta {
         	return beta;
     	}
 
 		// this branch improves score
 		// (it is higher than what you previously had)
+    	if score > alpha {
+        	alpha = score;
+    	}
+	}
+
+	alpha
+}
+
+fn qsearch(board: &Board, mut alpha: i32, beta: i32) -> i32 {
+	let static_eval = eval(board);
+
+	if static_eval >= beta {
+    	return beta;
+	}
+
+	if static_eval > alpha {
+    	alpha = static_eval;
+	}
+
+	let them = board.side_to_move.opposite();
+	let enemy_pieces = board.occupancy(them);
+
+	let mut moves = generate_legal_moves(board);
+	order_moves(board, &mut moves);
+
+	for mv in moves {
+		// check if it is a capture
+		let is_capture = enemy_pieces.is_set(mv.to_sq());
+		let is_en_passant = mv.flag_bits() == FLAG_EN_PASSANT;
+
+		if !is_capture && !is_en_passant {
+    		continue;
+		}
+
+    	let mut child = *board;
+    	child.make_move(mv);
+    	let score = -qsearch(&child, -beta, -alpha);
+
+    	if score >= beta {
+        	return beta;
+    	}
+
     	if score > alpha {
         	alpha = score;
     	}
@@ -71,6 +115,8 @@ pub fn search_root(board: &Board, depth: u32) -> (Move, i32) {
 	(best_move, alpha)
 }
 
+
+/// reorder move based on mvv_lva
 fn order_moves(board: &Board, moves: &mut [Move]) {
 	moves.sort_by_key(|&mv| -mvv_lva_score(board, mv));
 }
