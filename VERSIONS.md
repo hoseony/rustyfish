@@ -9,8 +9,7 @@ Rating estimates come from matches against Stockfish with `UCI_LimitStrength = t
 | v0.1-baseline | material + PST, alpha-beta, MVV-LVA, qsearch | sf1700 | 0.395 | −74 ± 53 | ~1625 |
 | v0.2 | time deadline, phase king table, mate distance | sf1700 | 0.540 | +28 ± 66 | ~1730 |
 
-
-## v0.2 
+## v0.2
 **Changes**
 - search stops mid-depth with deadline
 - time budget capped at `time/2`
