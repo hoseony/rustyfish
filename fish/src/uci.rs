@@ -4,7 +4,7 @@ use crate::board::moves::*;
 use crate::engine::search::*;
 
 use std::io::{self, BufRead, Write};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Instant};
 
 pub fn run() {
     let mut board = Board::initialize_board();
@@ -28,22 +28,34 @@ pub fn run() {
                 // time left
 				let my_time = get_value(&token, if board.side_to_move == Color::White { "wtime" } else { "btime" });
 				let my_inc = get_value(&token, if board.side_to_move == Color::White { "winc" } else { "binc" });
-				let budget_ms = my_time / 30 + my_inc / 2;
+				let budget_ms = (my_time / 30 + my_inc / 2).min(my_time / 2);
 
-				// get start time
-				let start = std::time::Instant::now();
-				let mut best = None;
+				// create time/search info
+				let start = Instant::now();
+				let mut info = SearchInfo {
+    				deadline: start + std::time::Duration::from_millis(budget_ms),
+    				stopped: false,
+    				nodes: 0,
+				};
+
+				let mut best: Option<Move> = None;
 
 				// iterative deepening
-				for depth in 1..=30 {
-    				let (mv, score) = search_root(&board, depth);
-    				let ms = start.elapsed().as_millis() as u64;
+				for depth in 1..=64 {
+    				let (mv, score) = search_root(&board, depth, &mut info);
+					if info.stopped {
+    					if best.is_none() {
+        					best = Some(mv);
+    					}
+    					break;
+					}
 
-                    println!("info depth {depth} score cp {score} time {ms} pv {}", mv.to_uci());
+    				let ms = start.elapsed().as_millis() as u64;
+                    println!("info depth {depth} score cp {score} nodes {} time {ms} pv {}", info.nodes, mv.to_uci());
                     best = Some(mv);
 
 					// next depth usually takes longer, so stop early
-                    if ms > budget_ms / 2 {
+                    if start.elapsed().as_millis() as u64 > budget_ms / 2 {
                         break;
                     }
 				}

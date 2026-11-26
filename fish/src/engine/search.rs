@@ -2,18 +2,29 @@ use crate::board::board::*;
 use crate::engine::eval::*;
 use crate::board::moves::*;
 
+use std::time::Instant;
+
 // these numbers should be good enough
 pub const INF:i32  = 1_000_000;
 pub const MATE: i32 = 100_000;
 
+pub struct SearchInfo {
+    pub deadline: Instant, 	// when to stop
+    pub stopped: bool, 		// did any search figured time is up?
+    pub nodes: u64, 		// positions searches
+}
 
 /// negamax: returns evaluated number
-fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
+fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info : &mut SearchInfo) -> i32 {
 	// alpha: the best score secured based on moves searched
 	// beta: the best score that opponent secured
 
+	if time_up(info) {
+    	return 0;
+	}
+
     // base case:
-	if depth == 0 { return qsearch(board, alpha, beta); }
+	if depth == 0 { return qsearch(board, alpha, beta, info); }
 
 	// generate & check moves
 	let mut moves = generate_legal_moves(board);
@@ -21,7 +32,7 @@ fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
 
 	if moves.is_empty() {
     	// mate or stalemate
-    	return if board.is_in_check() { -MATE } else { 0 }
+    	return if board.is_in_check() { -MATE + ply } else { 0 }
 	}
 
 	// recursively search
@@ -29,9 +40,14 @@ fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
     	// copy the board & make the move
     	let mut child = *board;
     	child.make_move(mv);
-    	let score = -negamax(&child, depth - 1, -beta, -alpha);
+    	let score = -negamax(&child, depth - 1, ply + 1, -beta, -alpha, info);
 
-		// stop searching this node
+		// stop searching this node when
+		// 1. Time is up (in this case, don't ues the score)
+		if info.stopped {
+    		return 0;
+		}
+
 		// if the score is higher than what opponent secured,
 		// There's no way your opponent will let that happen.
     	if score >= beta {
@@ -48,7 +64,11 @@ fn negamax(board: &Board, depth: u32, mut alpha: i32, beta: i32) -> i32 {
 	alpha
 }
 
-fn qsearch(board: &Board, mut alpha: i32, beta: i32) -> i32 {
+fn qsearch(board: &Board, mut alpha: i32, beta: i32, info: &mut SearchInfo) -> i32 {
+	if time_up(info) {
+    	return 0;
+	}
+
 	let static_eval = eval(board);
 
 	if static_eval >= beta {
@@ -76,7 +96,11 @@ fn qsearch(board: &Board, mut alpha: i32, beta: i32) -> i32 {
 
     	let mut child = *board;
     	child.make_move(mv);
-    	let score = -qsearch(&child, -beta, -alpha);
+    	let score = -qsearch(&child, -beta, -alpha, info);
+
+		if info.stopped {
+    		return 0;
+		}
 
     	if score >= beta {
         	return beta;
@@ -92,7 +116,7 @@ fn qsearch(board: &Board, mut alpha: i32, beta: i32) -> i32 {
 
 /// start of the search, negamax() only returns the number (evaluation)
 /// you need to know what move is the best
-pub fn search_root(board: &Board, depth: u32) -> (Move, i32) {
+pub fn search_root(board: &Board, depth: u32, info: &mut SearchInfo) -> (Move, i32) {
 	let mut moves = generate_legal_moves(board);
 	order_moves(board, &mut moves);
 	let mut best_move = moves[0];
@@ -103,7 +127,10 @@ pub fn search_root(board: &Board, depth: u32) -> (Move, i32) {
 	for mv in moves {
     	let mut child = *board;
     	child.make_move(mv);
-    	let score = -negamax(&child, depth - 1, -beta, -alpha);
+    	let score = -negamax(&child, depth - 1, 1, -beta, -alpha, info);
+		if info.stopped {
+    		break;
+		}
 
 		// when you see a better move, update
     	if score > alpha {
@@ -135,4 +162,14 @@ fn mvv_lva_score(board: &Board, mv: Move) -> i32 {
         None => 0,
     }
 
+}
+
+/// check if the time is up every 2048 nodes searched
+/// returns info.stopped (default: false, if timeout: true)
+fn time_up(info: &mut SearchInfo) -> bool {
+    info.nodes += 1;
+    if info.nodes.is_multiple_of(2048) && Instant::now() >= info.deadline {
+        info.stopped = true;
+    }
+    info.stopped
 }

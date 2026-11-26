@@ -93,7 +93,7 @@ pub const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
 
 /// board -> score
 pub fn eval(board: &Board) -> i32 {
-	let score = piece_sum(board) + piece_square_table(board);
+	let score = piece_sum(board) + piece_square_table(board) + king_score(board);
 
     if board.side_to_move == Color::White {score} else {-score}
 }
@@ -103,8 +103,9 @@ fn piece_square_table(board: &Board) -> i32 {
     let mut score = 0;
 
 	// iterate over entire boards, adds up the score
+	// exclude king (calculated separately with king_score)
 	for i in 0..=1 {
-    	for j in 0..6 {
+    	for j in 0..5 {
 			let mut bb = board.pieces[i][j];
 
 			while bb.0 != 0 {
@@ -137,6 +138,42 @@ fn piece_sum(board: &Board) -> i32 {
 
     score
 }
+
+/// 24 max, determine phase of t he game based on the pieces left
+fn game_phase(board: &Board) -> i32 {
+    const WEIGHTS: [i32; 6] = [0, 1, 1, 2, 4, 0]; // P, N, B, R, Q, K
+
+	let mut phase = 0;
+	for j in 0..6 {
+    	let count = (board.pieces[0][j].count_ones() + board.pieces[1][j].count_ones()) as i32;
+    	phase += count * WEIGHTS[j]
+	}
+
+    phase.min(24)
+}
+
+fn king_score(board: &Board) -> i32 {
+    let phase = game_phase(board);
+    let mut score = 0;
+
+    for i in 0..2 {
+        let mut bb = board.pieces[i][Piece::King as usize];
+        let sq = bb.pop_lsb() as usize;
+        let index = if i == 0 {sq ^ 56} else {sq};
+
+        let mg = PST[5][index];
+        let eg = PST[6][index];
+
+        let blended = (mg * phase + eg * (24 - phase)) / 24;
+
+        if i == 0 {score += blended;} else {score -= blended}
+    }
+
+    score
+}
+
+
+
 
 #[test]
 fn startpos_pst() {
