@@ -28,7 +28,7 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 
 	// lookup Transposition Table
 	let mut tt_move = None; // search these first
-	if let Some(entry) = tt.probe(board.hash) {
+	if let Some(entry) = tt.probe(board.hash, ply) {
     	tt_move = Some(entry.best_move);
 
 		if entry.depth >= depth {
@@ -94,7 +94,7 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
         	tt.store(TTEntry{
             	key: board.hash, depth, score: beta,
             	bound: Bound::Lower, best_move: mv,
-        	});
+        	}, ply);
         	return beta;
     	}
 
@@ -115,7 +115,7 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 
 	tt.store(TTEntry{
     	key: board.hash, depth, score: alpha, bound, best_move
-	});
+	}, ply);
 
 	alpha
 }
