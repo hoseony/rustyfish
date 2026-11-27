@@ -1,6 +1,7 @@
 use crate::board::board::*;
 use crate::engine::eval::*;
 use crate::board::moves::*;
+use crate::engine::tt::*;
 
 use std::time::Instant;
 
@@ -16,15 +17,32 @@ pub struct SearchInfo {
 }
 
 /// negamax: returns evaluated number
-fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info : &mut SearchInfo) -> i32 {
+fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info : &mut SearchInfo, tt: &mut TT) -> i32 {
 	// alpha: the best score secured based on moves searched
 	// beta: the best score that opponent secured
 
+	// check if time is up
 	if time_up(info) {
     	return 0;
 	}
 
-    // base case:
+	// lookup Transposition Table
+	let mut tt_move = None; // search these first
+	if let Some(entry) = tt.probe(board.hash) {
+    	tt_move = Some(entry.best_move);
+
+		if entry.depth >= depth {
+    		match entry.bound {
+        		Bound::Exact => return entry.score,
+        		Bound::Lower if entry.score >= beta => return beta,
+        		Bound::Upper if entry.score <= alpha => return alpha,
+        		_ => {}
+    		}
+		}
+	}
+
+
+    // base case: qsearch
 	if depth == 0 { return qsearch(board, alpha, beta, info); }
 
 	// special draw condition
@@ -34,12 +52,25 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 
 	// generate & check moves
 	let mut moves = generate_legal_moves(board);
+
+	// move ordering
 	order_moves(board, &mut moves);
 
+	if let Some(tm) = tt_move {
+    	// search TT moves first
+    	if let Some(pos) = moves.iter().position(|&m| m == tm) {
+        	moves.swap(0, pos);
+    	}
+	}
+
+	// check mate & stalemate
 	if moves.is_empty() {
     	// mate or stalemate
     	return if board.is_in_check() { -MATE + ply } else { 0 }
 	}
+
+	let original_alpha = alpha;
+	let mut best_move = moves[0];
 
 	// recursively search
 	for mv in moves {
@@ -48,7 +79,7 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
     	child.make_move(mv);
 
 		info.history.push(board.hash);
-    	let score = -negamax(&child, depth - 1, ply + 1, -beta, -alpha, info);
+    	let score = -negamax(&child, depth - 1, ply + 1, -beta, -alpha, info, tt);
 		info.history.pop();
 
 		// stop searching this node when
@@ -60,6 +91,10 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 		// if the score is higher than what opponent secured,
 		// There's no way your opponent will let that happen.
     	if score >= beta {
+        	tt.store(TTEntry{
+            	key: board.hash, depth, score: beta,
+            	bound: Bound::Lower, best_move: mv,
+        	});
         	return beta;
     	}
 
@@ -67,8 +102,20 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 		// (it is higher than what you previously had)
     	if score > alpha {
         	alpha = score;
+        	best_move = mv;
     	}
 	}
+
+	// update TT
+	let bound = if alpha > original_alpha {
+    	Bound::Exact
+	} else {
+    	Bound::Upper
+	};
+
+	tt.store(TTEntry{
+    	key: board.hash, depth, score: alpha, bound, best_move
+	});
 
 	alpha
 }
@@ -125,7 +172,7 @@ fn qsearch(board: &Board, mut alpha: i32, beta: i32, info: &mut SearchInfo) -> i
 
 /// start of the search, negamax() only returns the number (evaluation)
 /// you need to know what move is the best
-pub fn search_root(board: &Board, depth: u32, info: &mut SearchInfo) -> (Move, i32) {
+pub fn search_root(board: &Board, depth: u32, info: &mut SearchInfo, tt: &mut TT) -> (Move, i32) {
 	let mut moves = generate_legal_moves(board);
 	order_moves(board, &mut moves);
 	let mut best_move = moves[0];
@@ -138,7 +185,7 @@ pub fn search_root(board: &Board, depth: u32, info: &mut SearchInfo) -> (Move, i
     	child.make_move(mv);
 
     	info.history.push(board.hash);
-    	let score = -negamax(&child, depth - 1, 1, -beta, -alpha, info);
+    	let score = -negamax(&child, depth - 1, 1, -beta, -alpha, info, tt);
     	info.history.pop();
 
 		if info.stopped {

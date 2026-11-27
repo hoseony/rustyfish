@@ -2,6 +2,7 @@ use crate::board::board::*;
 use crate::board::parse::*;
 use crate::board::moves::*;
 use crate::engine::search::*;
+use crate::engine::tt::*;
 
 use std::io::{self, BufRead, Write};
 use std::time::{SystemTime, UNIX_EPOCH, Instant};
@@ -9,6 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH, Instant};
 pub fn run() {
     let mut board = Board::initialize_board();
 	let mut history: Vec<u64> = Vec::new();
+	let mut tt = TT::new(1 << 20);
+
     let stdin = io::stdin();
 
     for line in stdin.lock().lines() {
@@ -22,7 +25,10 @@ pub fn run() {
                 println!("id author hoseon");
                 println!("uciok")
             }
-            "ucinewgame" => board = Board::initialize_board(),
+            "ucinewgame" => {
+                board = Board::initialize_board();
+                tt.clear();
+            }
             "isready" => println!("readyok"),
             "position" => (board, history) = parse_position(&token),
             "go" => {
@@ -45,7 +51,7 @@ pub fn run() {
 
 				// iterative deepening
 				for depth in 1..=64 {
-    				let (mv, score) = search_root(&board, depth, &mut info);
+    				let (mv, score) = search_root(&board, depth, &mut info, &mut tt);
 					if info.stopped {
     					if best.is_none() {
         					best = Some(mv);
