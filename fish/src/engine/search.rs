@@ -12,6 +12,7 @@ pub struct SearchInfo {
     pub deadline: Instant, 	// when to stop
     pub stopped: bool, 		// did any search figured time is up?
     pub nodes: u64, 		// positions searches
+    pub history: Vec<u64> 	// history of moves (hashed!)
 }
 
 /// negamax: returns evaluated number
@@ -25,6 +26,11 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
 
     // base case:
 	if depth == 0 { return qsearch(board, alpha, beta, info); }
+
+	// special draw condition
+	if is_repetition(board, &info.history) || board.halfmove_clock >= 100 {
+    	return 0;
+	}
 
 	// generate & check moves
 	let mut moves = generate_legal_moves(board);
@@ -40,7 +46,10 @@ fn negamax(board: &Board, depth: u32, ply: i32, mut alpha: i32, beta: i32, info 
     	// copy the board & make the move
     	let mut child = *board;
     	child.make_move(mv);
+
+		info.history.push(board.hash);
     	let score = -negamax(&child, depth - 1, ply + 1, -beta, -alpha, info);
+		info.history.pop();
 
 		// stop searching this node when
 		// 1. Time is up (in this case, don't ues the score)
@@ -127,7 +136,11 @@ pub fn search_root(board: &Board, depth: u32, info: &mut SearchInfo) -> (Move, i
 	for mv in moves {
     	let mut child = *board;
     	child.make_move(mv);
+
+    	info.history.push(board.hash);
     	let score = -negamax(&child, depth - 1, 1, -beta, -alpha, info);
+    	info.history.pop();
+
 		if info.stopped {
     		break;
 		}
@@ -172,4 +185,12 @@ fn time_up(info: &mut SearchInfo) -> bool {
         info.stopped = true;
     }
     info.stopped
+}
+
+/// is this position repeated? (yes->true)
+fn is_repetition(board: &Board, history: &[u64]) -> bool {
+    history.iter().rev()
+        .take(board.halfmove_clock as usize)
+        .skip(1).step_by(2).any(|&h| h == board.hash)
+    // sorry for the funny function :(
 }

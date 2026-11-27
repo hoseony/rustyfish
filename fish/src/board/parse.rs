@@ -12,10 +12,11 @@ impl Board {
             en_passant: None,
             halfmove_clock: 0,
             fullmove_number: 1,
+            hash: 0,
         };
 
         let mut parts = fen.split_whitespace();
-        
+
         // 1. place pieces
         let placement: &str = parts.next().expect("from_fen | missing piece placement");
         // fen starts at A8!
@@ -26,10 +27,10 @@ impl Board {
                 // e.g. for the first loop, when it hits h8
                 // you need to move to a7
                 '/' => sq -= 16,
-                
+
                 // if it is a number, move the square accordingly
                 '1'..='8' => sq += c as i32 - 0x30,
-                
+
                 // everything else: place the piece
                 _ => {
                     let (color, piece) = match c {
@@ -90,7 +91,7 @@ impl Board {
         };
 
         // 5. halfmove clock
-        let halfmove: Option<&str> = parts.next();       
+        let halfmove: Option<&str> = parts.next();
         match halfmove {
             Some(count) => board.halfmove_clock = count.parse().expect("from fen (5) | Not a valid number"),
             None => board.halfmove_clock = 0,
@@ -102,6 +103,9 @@ impl Board {
             Some(count) => board.fullmove_number = count.parse().expect("from fen (6) | Not a valid number"),
             None => board.fullmove_number = 1,
         }
+
+		// 7. calculate hash
+		board.hash = board.compute_hash();
 
         return board;
     }

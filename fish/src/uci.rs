@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH, Instant};
 
 pub fn run() {
     let mut board = Board::initialize_board();
+	let mut history: Vec<u64> = Vec::new();
     let stdin = io::stdin();
 
     for line in stdin.lock().lines() {
@@ -23,7 +24,7 @@ pub fn run() {
             }
             "ucinewgame" => board = Board::initialize_board(),
             "isready" => println!("readyok"),
-            "position" => board = parse_position(&token),
+            "position" => (board, history) = parse_position(&token),
             "go" => {
                 // time left
 				let my_time = get_value(&token, if board.side_to_move == Color::White { "wtime" } else { "btime" });
@@ -32,10 +33,12 @@ pub fn run() {
 
 				// create time/search info
 				let start = Instant::now();
+
 				let mut info = SearchInfo {
     				deadline: start + std::time::Duration::from_millis(budget_ms),
     				stopped: false,
     				nodes: 0,
+    				history: history.clone(),
 				};
 
 				let mut best: Option<Move> = None;
@@ -100,7 +103,7 @@ fn random_move(board: &Board, rng: &mut u64) -> Move {
 }
 
 /// parse token in to correct board
-fn parse_position(token: &[&str]) -> Board {
+fn parse_position(token: &[&str]) -> (Board, Vec<u64>) {
     /* The input format of the "token" is as such:
      *  - position startpos
      *  - position startpos moves e2e4 e7e5
@@ -109,6 +112,7 @@ fn parse_position(token: &[&str]) -> Board {
      */
 
     let index = token.iter().position(|&r| r == "moves");
+    let mut history = Vec::new();
 
     // it is either startpos or fen
     let mut board = match token.get(1) {
@@ -129,7 +133,10 @@ fn parse_position(token: &[&str]) -> Board {
         for mv_str in &token[i + 1..] {
             let legal = generate_legal_moves(&board);
             match parse_move_input(mv_str, &legal) {
-                Some(mv) => board.make_move(mv),
+                Some(mv) => {
+                    history.push(board.hash);
+                    board.make_move(mv);
+                },
                 None => {
                     eprintln!("illegal move in position: {mv_str}");
                     break;
@@ -138,5 +145,5 @@ fn parse_position(token: &[&str]) -> Board {
         }
     }
 
-    board
+    (board, history)
 }

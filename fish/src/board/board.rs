@@ -1,5 +1,7 @@
 use crate::board::bitboard::Bitboard;
 use crate::board::moves::*;
+use crate::board::attacks::*;
+use crate::board::zobrist::*;
 
 use std::fmt;
 
@@ -22,12 +24,12 @@ pub enum Piece {
 }
 
 pub const ALL_PIECES: [Piece; 6] = [
-    Piece::Pawn, 
-    Piece::Knight, 
-    Piece::Bishop, 
-    Piece::Rook, 
-    Piece::Queen, 
-    Piece::King, 
+    Piece::Pawn,
+    Piece::Knight,
+    Piece::Bishop,
+    Piece::Rook,
+    Piece::Queen,
+    Piece::King,
 ];
 
 /// struct to represent the board status
@@ -37,13 +39,15 @@ pub struct Board {
     pub side_to_move: Color,
     pub castling_rights: u8, // going to use the 4 bits only
     // 0001: white King
-    // 0010: whiet queen 
-    // 0100: black king 
+    // 0010: whiet queen
+    // 0100: black king
     // 1000: black queen
 
     pub en_passant: Option<u8>,
     pub halfmove_clock: u32, // if hit 100, 50 move rule
     pub fullmove_number: u32, // just to add more information
+
+    pub hash: u64, // this is for zobrist hashing
 }
 
 // -------------------- impl --------------------
@@ -61,7 +65,7 @@ impl Board {
 
     /// initialize Board wth correct state; pieces, side, ...
     pub fn initialize_board() -> Board {
-        Board {
+        let mut board = Board {
             pieces: [
                 [
                     Bitboard(0x000000000000FF00), // wp
@@ -85,7 +89,11 @@ impl Board {
             en_passant: None,
             halfmove_clock: 0,
             fullmove_number: 1,
-        }
+            hash : 0,
+        };
+
+        board.hash = board.compute_hash();
+        board
     }
 
     /// returns symbol of a piece at the target square from the board
@@ -109,13 +117,13 @@ impl Board {
         if self.pieces[1][4].0 & target_sq != 0 { return '♕'; }
         if self.pieces[1][5].0 & target_sq != 0 { return '♔'; }
 
-        return '.';
+        '.'
     }
 
     /// returns type of Piece at the square given color
     pub fn piece_type_at(&self, color: Color, sq: u8) -> Option<Piece> {
 
-        // for piece in &ALL_PIECES 
+        // for piece in &ALL_PIECES
         //  - this will make piece type of &Piece
         //  - by doing &piece, we are matching &piece = &ALL_PIECES
 
@@ -131,7 +139,7 @@ impl Board {
 
     pub fn occupancy(&self, color: Color) -> Bitboard {
         let mut occupied: u64 = 0;
-        
+
         for piece in self.pieces[color as usize].iter() {
             occupied |= piece.0
         }
@@ -148,16 +156,20 @@ impl Board {
         let from: u8 = mv.from_sq();
         let to: u8   = mv.to_sq();
         let flag: u8 = mv.flag_bits();
-        
+
         let friendly: Color = self.side_to_move;
         let enemy: Color = friendly.opposite();
+		self.hash ^= ZOBRIST.castling[self.castling_rights as usize];
+		if let Some(ep) = self.en_passant {
+    		self.hash ^= ZOBRIST.ep_file[(ep % 8) as usize];
+		}
 
         /* 1. who is moving? */
         let moving_piece = self.piece_type_at(friendly, from).expect("make_move | where is the move?");
 
         /* 2. remove captured piece if any */
         let mut was_capture = false; // this will be used at 7.
-                                      
+
         // if there a enemy piece, remove bit, update was_capture
         if let Some(capture) = self.piece_type_at(enemy, to) {
             self.pieces[enemy as usize][capture as usize].remove_bit(to);
@@ -171,75 +183,97 @@ impl Board {
                     (Color::Black, 63) => self.castling_rights &= !0b0100u8,
                     (Color::Black, 56) => self.castling_rights &= !0b1000u8,
                     _ => {},
-
                 }
-
             }
+            self.zobrist_toggle_piece(enemy, capture, to);
         }
 
         /* 3. move the piece */
         self.pieces[friendly as usize][moving_piece as usize].move_bit(from, to);
+
+        // update hash
+		self.zobrist_toggle_piece(friendly, moving_piece, from);
+		self.zobrist_toggle_piece(friendly, moving_piece, to);
 
         /* 4. handle special rule */
         match flag {
             FLAG_NONE => {}, // there nothing to do here
 
             FLAG_PROMOTION => {
-                // remove pawn 
+                // remove pawn
                 // add some piece
                 self.pieces[friendly as usize][0].remove_bit(to);
 
                 let promotion_piece: u8 = mv.promotion_bits();
                 self.pieces[friendly as usize][promotion_piece as usize + 1].set_bit(to);
-                // 0 - Knight 
+                // 0 - Knight
                 // 1 - Bishop
-                // 2 - Rook 
+                // 2 - Rook
                 // 3 - Queen
+
+                // update hash
+                self.zobrist_toggle_piece(friendly, Piece::Pawn, to);
+				// + 1 is required due to Piece enum and promotion-bit's numbering system is slightly different
+                self.hash ^= ZOBRIST.pieces[friendly as usize][promotion_piece as usize + 1][to as usize];
             },
 
             FLAG_EN_PASSANT => {
                 // remove pawn
                 let target: u8 = if friendly == Color::White { to - 8 } else { to + 8 };
                 self.pieces[enemy as usize][0].remove_bit(target);
+                // update hash
+                self.zobrist_toggle_piece(enemy, Piece::Pawn, target);
             },
 
-            FLAG_CASTLING => { 
+            FLAG_CASTLING => {
                 let (rook_from, rook_to) = match to {
                     6  => (7, 5),
                     2  => (0, 3),
                     62 => (63, 61),
                     58 => (56, 59),
                     _ => unreachable!("make_move | invalid castling destination: {}", to),
-
                 };
                 self.pieces[friendly as usize][Piece::Rook as usize].move_bit(rook_from, rook_to);
-
+                // update hash
+                self.zobrist_toggle_piece(friendly, Piece::Rook, rook_from);
+                self.zobrist_toggle_piece(friendly, Piece::Rook, rook_to);
             },
 
             _ => unreachable!("make_move | flag should be 0-3, got {}", flag),
         }
 
-        // 5. update en passant 
-
+        /* 5. update en passant */
         self.en_passant = None;
         if moving_piece == Piece::Pawn {
             let diff = (to as i16 - from as i16).abs();
-            // if the pawn moved two square forward, 
-            // add the midpoint between from and to (which is the ep square)
-            // to the en_passant value.
+            // if the pawn moved two square forward,
+            // add the midpoint between from and to (which is the ep square) to the en_passant value.
+            //
+            // only set the square if an enemy pawn could actually capture there
 
             if diff == 16 {
-                self.en_passant = Some(((from + to) as u16 / 2) as u8);
+                let ep_sq= ((from + to) as u16 / 2) as u8;
+                let enemy_pawns = self.pieces[enemy as usize][Piece::Pawn as usize];
+
+                // squares an enemy pawn would need to be to capture on to ep_sq
+                let capturers = if friendly == Color::White {
+                    white_pawn_attacks(ep_sq)
+                } else {
+                    black_pawn_attacks(ep_sq)
+                };
+
+                if (capturers.0 & enemy_pawns.0) != 0 {
+                    self.en_passant = Some(ep_sq);
+                }
             }
         }
 
-        // 6. update castling 
+        /* 6. update castling */
         //     0001: white King
-        //     0010: whiet queen 
-        //     0100: black king 
+        //     0010: whiet queen
+        //     0100: black king
         //     1000: black queen
-        
-        if moving_piece == Piece::King {
+		if moving_piece == Piece::King {
             if friendly == Color::White {
                 self.castling_rights &= !0b0011u8;
             } else {
@@ -257,25 +291,32 @@ impl Board {
             }
         }
 
-        // 7. update halfmove clock 
-        
+        /* 7. update halfmove clock */
         // if capture, reset the clock
         // if pawn moves, reset the clock, otherwise increment
         if (moving_piece == Piece::Pawn) || (was_capture) || flag == FLAG_EN_PASSANT {
-            self.halfmove_clock = 0; 
+            self.halfmove_clock = 0;
         } else {
             self.halfmove_clock += 1;
         }
 
-        // 8. update full move 
+        // 8. update full move
         if friendly == Color::Black {
             self.fullmove_number += 1;
         }
 
+		// update hashes...
+		self.hash ^= ZOBRIST.castling[self.castling_rights as usize];
+		if let Some(ep) = self.en_passant {
+    		self.hash ^= ZOBRIST.ep_file[(ep % 8) as usize];
+		}
+		self.hash ^= ZOBRIST.side;
+
+
         // 9. switch side, turn ends
         self.side_to_move = enemy;
     }
-   
+
     /// return true if side to move's king is attacked
     pub fn is_in_check(&self) -> bool {
         let friendly = self.side_to_move;
